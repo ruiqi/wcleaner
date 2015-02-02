@@ -1,0 +1,6 @@
+*.swp
+*.pyc
+*.log
+*.backup
+build
+*.egg-info
