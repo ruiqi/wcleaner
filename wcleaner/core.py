@@ -3,10 +3,12 @@
 from wcleaner import __version__
 
 import os
+import time
 import argparse
 import scandir
 import heapq
 import re
+import tempfile
 
 MAX_CAPACITY = 80
 IGNORE_FILES_COUNT = 0
@@ -42,7 +44,7 @@ def walk(path):
         IGNORE_FILES_COUNT += 1
 
 def get_re_path(paths):
-    strings = re.findall(r'[^\d]+', paths[0])
+    strings = re.findall(r'[^\d]+', paths[0]+'$')
     numbers_l = map(lambda path: re.findall(r'[\d]+', path), paths)
 
     for i, z_numbers in enumerate(zip(*numbers_l)):
@@ -95,10 +97,10 @@ def wcleaner():
             except OSError, e:
                 IGNORE_FILES_COUNT += 1
 
-            path = f.path + '$'
+            path = f.path
             size = stat.st_blocks*stat.st_blksize/1024/8
 
-            key = tuple(re.findall(r'[^\d]+', path))
+            key = tuple(re.findall(r'[^\d]+', path+'$'))
             if not key in group_files:
                 group_files[key] = {
                     'size': 0,
@@ -108,10 +110,72 @@ def wcleaner():
             group_files[key]['size'] += size
             group_files[key]['paths'].append(path)
 
+        if IGNORE_FILES_COUNT: print 'Warning: Ignore the %d files ...' %IGNORE_FILES_COUNT
+
         if args.n:
-            print 'Ignore the %d files. The top %d largest files:' %(IGNORE_FILES_COUNT, args.n)
+            print 'The top %d largest files:' %args.n
             for v in heapq.nlargest(args.n, group_files.values(), key=lambda v: v['size']):
                 print '%s\t%s' %(get_human_size(v['size']), get_re_path(v['paths']))
+            print
+            print
+        else:
+            for v in heapq.nlargest(30, group_files.values(), key=lambda v: v['size']):
+                re_path = get_re_path(v['paths'])
+
+                if re.match(r'.*\blog\b.*', re_path):
+                    if '*' in re_path:
+                        while True:
+                            print
+                            p = raw_input('Clean three days ago files "(%s) %s" [y/n/$days/l]:' %(get_human_size(v['size']), get_re_path(v['paths'])))
+
+                            if p in ['y', 'yes', 'Y', 'YES']: p = '3'
+
+                            if p in ['l', 'less', 'L', 'LESS']:
+                                print 'List ...'
+
+                                temp = tempfile.NamedTemporaryFile() 
+                                temp.writelines(['%s\n' %path for path in sorted(v['paths'])])
+                                temp.flush()
+                                os.system('less %s' %temp.name)
+                                temp.close()
+                                continue
+
+                            try:
+                                days = int(p)
+
+                                print 'Clean %d days ago files ...' %days
+
+                                #clean $days ago files
+                                now_ts = time.time()
+                                for path in v['paths']:
+                                    if now_ts - os.stat(path).st_mtime > days * 24 * 60 * 60:
+                                        print 'rm %s' %path
+                                        #os.remove(path)
+
+                            except ValueError:
+                                print 'Cancel ...'
+
+                            break
+                    else:
+                        while True:
+                            print
+                            p = raw_input('Empty the file "(%s) %s" [y/n/l]:' %(get_human_size(v['size']), get_re_path(v['paths'])))
+
+                            if p in ['y', 'yes', 'Y', 'YES']:
+                                print 'Empty ... '
+
+                                #empty file
+                                print 'empty %s' %re_path
+                                #open(re_path, 'w').close()
+                            elif p in ['l', 'less', 'L', 'LESS']:
+                                print 'List ...'
+
+                                os.system('less %s' %re_path)
+                                continue
+                            else:
+                                print 'Cancel ...'
+
+                            break
             print
             print
 
