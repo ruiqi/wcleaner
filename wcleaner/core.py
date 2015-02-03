@@ -9,6 +9,7 @@ import heapq
 import re
 
 MAX_CAPACITY = 80
+IGNORE_FILES_COUNT = 0
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
@@ -23,6 +24,8 @@ for line in os.popen('df -Plk').readlines()[1:]:
 #print MOUNT_POINTS
 
 def walk(path):
+    global IGNORE_FILES_COUNT
+
     try:
         for f in scandir.scandir(path):
             #print f.path, f.is_dir(), f.is_symlink(), f.is_file()
@@ -36,7 +39,7 @@ def walk(path):
             else:
                 yield f
     except OSError, e:
-        print 'Warning: %s' %e
+        IGNORE_FILES_COUNT += 1
 
 def get_re_path(paths):
     strings = re.findall(r'[^\d]+', paths[0])
@@ -48,7 +51,7 @@ def get_re_path(paths):
             strings[i] += z_numbers[0] + '*'
 
     #print strings
-    return '*'.join(strings).replace('**', '')
+    return '*'.join(strings).replace('**', '')[:-1]
 
 def get_human_size(size):
     size = float(size)
@@ -62,12 +65,17 @@ def get_human_size(size):
         return '%.1fT' %(size/1024/1024/1024)
 
 def wcleaner():
+    global MAX_CAPACITY, IGNORE_FILES_COUNT
+
     parser = argparse.ArgumentParser(description='Wandoujia Cleaner')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('FILESYSTEM', type=str, nargs='?', help='the filesystem to clean')
+    parser.add_argument('-n', type=int, help='print the top number largest files')
+    parser.add_argument('--max-capacity', type=int, help='max capacity')
 
     args = parser.parse_args()
 
+    if args.max_capacity: MAX_CAPACITY = args.max_capacity
 
     for Point, (Filesystem, Size, Capacity) in MOUNT_POINTS.items():
         #specify the filesystem to clean
@@ -79,10 +87,15 @@ def wcleaner():
         print 'Cleaner: %s (%s) ...' %(Point, Filesystem)
 
         group_files = {}
+        IGNORE_FILES_COUNT = 0
 
         for f in walk(Point):
-            stat = f.stat()
-            path = f.path
+            try:
+                stat = f.stat()
+            except OSError, e:
+                IGNORE_FILES_COUNT += 1
+
+            path = f.path + '$'
             size = stat.st_blocks*stat.st_blksize/1024/8
 
             key = tuple(re.findall(r'[^\d]+', path))
@@ -95,10 +108,12 @@ def wcleaner():
             group_files[key]['size'] += size
             group_files[key]['paths'].append(path)
 
-        for v in heapq.nlargest(10, group_files.values(), key=lambda v: v['size']):
-            print '%s\t%s' %(get_human_size(v['size']), get_re_path(v['paths']))
-        print
-        print
+        if args.n:
+            print 'Ignore the %d files. The top %d largest files:' %(IGNORE_FILES_COUNT, args.n)
+            for v in heapq.nlargest(args.n, group_files.values(), key=lambda v: v['size']):
+                print '%s\t%s' %(get_human_size(v['size']), get_re_path(v['paths']))
+            print
+            print
 
 if __name__ == '__main__':
     wcleaner()
