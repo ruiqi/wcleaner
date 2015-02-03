@@ -6,8 +6,9 @@ import os
 import argparse
 import scandir
 import heapq
+import re
 
-MAX_CAPACITY = 20
+MAX_CAPACITY = 80
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
@@ -35,17 +36,38 @@ def walk(path):
             else:
                 yield f
     except OSError, e:
-        print e
+        print 'Warning: %s' %e
+
+def get_re_path(paths):
+    strings = re.findall(r'[^\d]+', paths[0])
+    numbers_l = map(lambda path: re.findall(r'[\d]+', path), paths)
+
+    for i, z_numbers in enumerate(zip(*numbers_l)):
+        #print i, z_numbers[0], all([number == z_numbers[0] for number in z_numbers])
+        if all([number == z_numbers[0] for number in z_numbers]):
+            strings[i] += z_numbers[0] + '*'
+
+    #print strings
+    return '*'.join(strings).replace('**', '')
+
+def get_human_size(size):
+    size = float(size)
+    if size < 1024:
+        return '%.1fK' %size
+    elif size < 1024*1024:
+        return '%.1fM' %(size/1024)
+    elif size < 1024*1024*1024:
+        return '%.1fG' %(size/1024/1024)
+    else:
+        return '%.1fT' %(size/1024/1024/1024)
 
 def wcleaner():
     parser = argparse.ArgumentParser(description='Wandoujia Cleaner')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('FILESYSTEM', type=str, nargs='?', help='the filesystem to clean')
-    parser.add_argument('--max-capacity', type=str, nargs='?', help='the filesystem to clean')
 
     args = parser.parse_args()
 
-    files_info = []
 
     for Point, (Filesystem, Size, Capacity) in MOUNT_POINTS.items():
         #specify the filesystem to clean
@@ -54,17 +76,29 @@ def wcleaner():
         #default to clean >MOUNT_POINTS% filesystem
         if not args.FILESYSTEM and Capacity < MAX_CAPACITY: continue
 
-        print 'Point: ', Point
+        print 'Cleaner: %s (%s) ...' %(Point, Filesystem)
 
-        for i, f in enumerate(walk(Point)):
+        group_files = {}
+
+        for f in walk(Point):
             stat = f.stat()
-            f_size = stat.st_blocks*stat.st_blksize/1024/8
+            path = f.path
+            size = stat.st_blocks*stat.st_blksize/1024/8
 
-            files_info.append((f.path, f_size))
+            key = tuple(re.findall(r'[^\d]+', path))
+            if not key in group_files:
+                group_files[key] = {
+                    'size': 0,
+                    'paths': [],
+                }
 
-    for path, size in heapq.nlargest(10, files_info, key=lambda x: x[1]):
-        print path, size
-    print
+            group_files[key]['size'] += size
+            group_files[key]['paths'].append(path)
+
+        for v in heapq.nlargest(10, group_files.values(), key=lambda v: v['size']):
+            print '%s\t%s' %(get_human_size(v['size']), get_re_path(v['paths']))
+        print
+        print
 
 if __name__ == '__main__':
     wcleaner()
