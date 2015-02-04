@@ -11,10 +11,13 @@ import re
 import tempfile
 
 MAX_CAPACITY = 80
+TARGET_CAPACITY = 40
 IGNORE_FILES_COUNT = 0
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
+    if line[0] != '/': continue
+
     line_cells = line.split()
 
     filesystem = line_cells[0]
@@ -24,6 +27,9 @@ for line in os.popen('df -Plk').readlines()[1:]:
 
     MOUNT_POINTS[point] = (filesystem, size, capacity)
 #print MOUNT_POINTS
+
+def get_filesystem_capacity(filesystem):
+    return int(os.popen("df -Plk | grep '%s'" %filesystem).read().split()[-2][:-1])
 
 def walk(path):
     global IGNORE_FILES_COUNT
@@ -67,26 +73,32 @@ def get_human_size(size):
         return '%.1fT' %(size/1024/1024/1024)
 
 def wcleaner():
-    global MAX_CAPACITY, IGNORE_FILES_COUNT
+    global MAX_CAPACITY, TARGET_CAPACITY, IGNORE_FILES_COUNT
 
     parser = argparse.ArgumentParser(description='Wandoujia Cleaner')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('FILESYSTEM', type=str, nargs='?', help='the filesystem to clean')
     parser.add_argument('-n', type=int, help='print the top number largest files')
     parser.add_argument('--max-capacity', type=int, help='max capacity')
+    parser.add_argument('--target-capacity', type=int, help='target capacity')
 
     args = parser.parse_args()
 
     if args.max_capacity: MAX_CAPACITY = args.max_capacity
+    if args.target_capacity: TARGET_CAPACITY = args.target_capacity
+    TARGET_CAPACITY = min(TARGET_CAPACITY, MAX_CAPACITY/2)
+    #print MAX_CAPACITY, TARGET_CAPACITY
 
     for Point, (Filesystem, Size, Capacity) in MOUNT_POINTS.items():
         #specify the filesystem to clean
         if args.FILESYSTEM and args.FILESYSTEM != Filesystem and args.FILESYSTEM != Point: continue
 
-        #default to clean >MOUNT_POINTS% filesystem
-        if not args.FILESYSTEM and Capacity < MAX_CAPACITY: continue
-
         print 'Cleaner: %s (%s) ...' %(Point, Filesystem)
+
+        #default to clean >MAX_CAPACITY% filesystem
+        if not args.n and (Capacity < TARGET_CAPACITY or not args.FILESYSTEM and Capacity < MAX_CAPACITY):
+            print 'Do not need to clean ...\n\n'
+            continue
 
         group_files = {}
         IGNORE_FILES_COUNT = 0
@@ -103,38 +115,53 @@ def wcleaner():
             key = tuple(re.findall(r'[^\d]+', path+'$'))
             if not key in group_files:
                 group_files[key] = {
-                    'size': 0,
-                    'paths': [],
+                    'total-size': 0,
+                    'paths-sizes': [],
                 }
 
-            group_files[key]['size'] += size
-            group_files[key]['paths'].append(path)
+            group_files[key]['total-size'] += size
+            group_files[key]['paths-sizes'].append((path, size))
 
         if IGNORE_FILES_COUNT: print 'Warning: Ignore the %d files ...' %IGNORE_FILES_COUNT
 
         if args.n:
             print 'The top %d largest files:' %args.n
-            for v in heapq.nlargest(args.n, group_files.values(), key=lambda v: v['size']):
-                print '%s\t%s' %(get_human_size(v['size']), get_re_path(v['paths']))
+            for v in heapq.nlargest(args.n, group_files.values(), key=lambda v: v['total-size']):
+                print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['paths-sizes'])[0]))
             print
             print
         else:
-            for v in heapq.nlargest(30, group_files.values(), key=lambda v: v['size']):
-                re_path = get_re_path(v['paths'])
+            #default to clean >MAX_CAPACITY% filesystem
+            if Capacity < TARGET_CAPACITY or not args.FILESYSTEM and Capacity < MAX_CAPACITY:
+                print 'Do not need to clean ...'
+                continue
+
+            nlargest_files = heapq.nlargest(20, group_files.values(), key=lambda v: v['total-size'])
+
+            #clean for top 10
+            for v in nlargest_files[:10]:
+                #update capacity
+                Capacity = get_filesystem_capacity(Filesystem)
+                if Capacity <= TARGET_CAPACITY: break
+
+                human_size = get_human_size(v['total-size'])
+                re_path = get_re_path(zip(*v['paths-sizes'])[0])
 
                 if re.match(r'.*\blog\b.*', re_path):
                     if '*' in re_path:
                         while True:
                             print
-                            p = raw_input('Clean three days ago files "(%s) %s" [y/n/$days/l]:' %(get_human_size(v['size']), get_re_path(v['paths'])))
+                            p = raw_input('Clean three days ago files "(%s) %s"? [y/n/$days/l/d]:' %(human_size, re_path))
 
                             if p in ['y', 'yes', 'Y', 'YES']: p = '3'
+
+                            if p in ['d', 'delete', 'D', 'DELETE']: p = '0'
 
                             if p in ['l', 'less', 'L', 'LESS']:
                                 print 'List ...'
 
                                 temp = tempfile.NamedTemporaryFile() 
-                                temp.writelines(['%s\n' %path for path in sorted(v['paths'])])
+                                temp.writelines(['%s\n' %path for path in sorted(zip(*v['paths-sizes'])[0])])
                                 temp.flush()
                                 os.system('less %s' %temp.name)
                                 temp.close()
@@ -143,14 +170,18 @@ def wcleaner():
                             try:
                                 days = int(p)
 
-                                print 'Clean %d days ago files ...' %days
+                                if days:
+                                    print 'Clean %d days ago files ...' %days
+                                else:
+                                    print 'Delete ...'
 
                                 #clean $days ago files
                                 now_ts = time.time()
-                                for path in v['paths']:
+                                for path, size in v['paths-sizes']:
                                     if now_ts - os.stat(path).st_mtime > days * 24 * 60 * 60:
-                                        print 'rm %s' %path
-                                        #os.remove(path)
+                                        #print 'rm %s' %path
+                                        v['total-size'] -= size
+                                        os.remove(path)
 
                             except ValueError:
                                 print 'Cancel ...'
@@ -159,14 +190,21 @@ def wcleaner():
                     else:
                         while True:
                             print
-                            p = raw_input('Empty the file "(%s) %s" [y/n/l]:' %(get_human_size(v['size']), get_re_path(v['paths'])))
+                            p = raw_input('Empty the file "(%s) %s"? [y/n/l/d]:' %(human_size, re_path))
 
                             if p in ['y', 'yes', 'Y', 'YES']:
                                 print 'Empty ... '
 
                                 #empty file
-                                print 'empty %s' %re_path
-                                #open(re_path, 'w').close()
+                                #print 'empty %s' %re_path
+                                v['total-size'] -= v['paths-sizes'][0][1]
+                                open(re_path, 'w').close()
+                            elif p in ['d', 'delete', 'D', 'DELETE']:
+                                print 'Delete ... '
+
+                                #print 'delete %s' %re_path
+                                v['total-size'] -= v['paths-sizes'][0][1]
+                                os.remove(re_path)
                             elif p in ['l', 'less', 'L', 'LESS']:
                                 print 'List ...'
 
@@ -176,6 +214,18 @@ def wcleaner():
                                 print 'Cancel ...'
 
                             break
+
+            Capacity = get_filesystem_capacity(Filesystem)
+            #print Capacity, TARGET_CAPACITY
+            if Capacity > TARGET_CAPACITY:
+                print
+                print 'Warning: Can not reduce capacity < %d%%. This is the top 10 files:' %TARGET_CAPACITY
+                for v in sorted(nlargest_files, key=lambda v: v['total-size'], reverse=True)[:10]:
+                    print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['paths-sizes'])[0]))
+            else:
+                print
+                print 'Now the %s (%s) capacity < %d%%' %(Point, Filesystem, TARGET_CAPACITY)
+
             print
             print
 
