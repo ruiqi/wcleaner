@@ -14,6 +14,8 @@ MAX_CAPACITY = 80
 TARGET_CAPACITY = 40
 IGNORE_FILES_COUNT = 0
 
+JUNK_PATTERN = r'.*\blogs?\b.*'
+
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
     if line[0] != '/': continue
@@ -147,7 +149,7 @@ def wcleaner():
                 human_size = get_human_size(v['total-size'])
                 re_path = get_re_path(zip(*v['paths-sizes'])[0])
 
-                if re.match(r'.*\blog\b.*', re_path):
+                if re.match(JUNK_PATTERN, re_path):
                     if '*' in re_path:
                         while True:
                             print
