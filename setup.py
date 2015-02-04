@@ -24,6 +24,6 @@ setup(
     },
     install_requires=[
         'argparse',
-        'scandir',
+        #'scandir',
     ],
 )
