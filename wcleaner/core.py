@@ -80,7 +80,7 @@ def wcleaner():
     parser = argparse.ArgumentParser(description='Wandoujia Cleaner')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('FILESYSTEM', type=str, nargs='?', help='the filesystem to clean')
-    parser.add_argument('-n', type=int, help='print the top number largest files')
+    parser.add_argument('-n', type=int, help='print the largest N files')
     parser.add_argument('--max-capacity', type=int, help='max capacity')
     parser.add_argument('--target-capacity', type=int, help='target capacity')
 
@@ -128,7 +128,7 @@ def wcleaner():
         if IGNORE_FILES_COUNT: print 'Warning: Ignore the %d files ...' %IGNORE_FILES_COUNT
 
         if args.n:
-            print 'The top %d largest files:' %args.n
+            print 'The largest %d files:' %args.n
             for v in heapq.nlargest(args.n, group_files.values(), key=lambda v: v['total-size']):
                 print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['infos'])[0]))
             print
@@ -141,7 +141,7 @@ def wcleaner():
 
             nlargest_files = heapq.nlargest(20, group_files.values(), key=lambda v: v['total-size'])
 
-            #clean for top 10
+            #clean for largest 10
             for v in nlargest_files[:10]:
                 #update capacity
                 Capacity = get_filesystem_capacity(Filesystem)
@@ -230,7 +230,7 @@ def wcleaner():
             #print Capacity, TARGET_CAPACITY
             if Capacity > TARGET_CAPACITY:
                 print
-                print 'Warning: Can not reduce capacity < %d%%. This is the top 10 files:' %TARGET_CAPACITY
+                print 'Warning: Can not reduce capacity < %d%%. This is the largest 10 files:' %TARGET_CAPACITY
                 for v in sorted(nlargest_files, key=lambda v: v['total-size'], reverse=True)[:10]:
                     print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['infos'])[0]))
             else:
