@@ -157,7 +157,7 @@ def wcleaner():
                     if '*' in re_path:
                         v['infos'].sort(key=lambda x: x[2])
                         mtime_2_3 = v['infos'][len(v['infos'])*2/3][2]
-                        now_ts = time.time()
+                        now_ts = int(time.time())
 
                         default_p = min((now_ts - mtime_2_3)/(24*60*60), 3)
 
@@ -190,7 +190,7 @@ def wcleaner():
 
                                 #clean $days ago files
                                 for path, size, mtime in v['infos']:
-                                    if now_ts - os.stat(path).st_mtime > min(days*24*60*60, 3*60*60):
+                                    if now_ts - mtime > max(days*24*60*60, 3*60*60):
                                         #print 'rm %s' %path
                                         v['total-size'] -= size
                                         os.remove(path)
