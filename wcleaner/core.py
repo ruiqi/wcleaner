@@ -125,10 +125,10 @@ def wcleaner():
             group_files[key]['total-size'] += size
             group_files[key]['infos'].append((path, size, mtime))
 
-        if IGNORE_FILES_COUNT: print 'Warning: Ignore the %d files ...' %IGNORE_FILES_COUNT
+        if IGNORE_FILES_COUNT: print '\nWarning: Ignore the %d files ...' %IGNORE_FILES_COUNT
 
         if args.n:
-            print 'The largest %d files:' %args.n
+            print '\nThe largest %d files:' %args.n
             for v in heapq.nlargest(args.n, group_files.values(), key=lambda v: v['total-size']):
                 print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['infos'])[0]))
             print
@@ -159,11 +159,12 @@ def wcleaner():
                         mtime_2_3 = v['infos'][len(v['infos'])*2/3][2]
                         now_ts = time.time()
 
-                        default_p = (now_ts - mtime_2_3)/(24*60*60)
+                        default_p = min((now_ts - mtime_2_3)/(24*60*60), 3)
 
                         while True:
                             print
-                            p = raw_input('Clean three days ago files "(%s) %s"? [y/n/$days/l/d]:' %(human_size, re_path))
+                            print "Junk: (%s) %s" %(human_size, re_path)
+                            p = raw_input('Clean %d days ago files (Except recent files)? [y/n/$days/l/d]:' %default_p)
 
                             if p in ['y', 'yes', 'Y', 'YES']: p = default_p
 
@@ -185,7 +186,7 @@ def wcleaner():
                                 if days == -1:
                                     print 'Delete ...'
                                 else:
-                                    print 'Clean %d days ago files (Except recent files) ...' %days
+                                    print 'Clean %d days ago files ...' %days
 
                                 #clean $days ago files
                                 for path, size, mtime in v['infos']:
