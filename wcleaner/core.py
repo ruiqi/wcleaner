@@ -164,7 +164,7 @@ def wcleaner():
                         while True:
                             print
                             print "Junk: (%s) %s" %(human_size, re_path)
-                            p = raw_input('Clean %d days ago files (Except recent files)? [y/n/$days/l/d]:' %default_p)
+                            p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d]:' %default_p)
 
                             if p in ['y', 'yes', 'Y', 'YES']: p = default_p
 
@@ -190,7 +190,7 @@ def wcleaner():
 
                                 #clean $days ago files
                                 for path, size, mtime in v['infos']:
-                                    if now_ts - os.stat(path).st_mtime > days * 24 * 60 * 60:
+                                    if now_ts - os.stat(path).st_mtime > min(days*24*60*60, 3*60*60):
                                         #print 'rm %s' %path
                                         v['total-size'] -= size
                                         os.remove(path)
