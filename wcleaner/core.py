@@ -19,7 +19,7 @@ IGNORE_FILES_COUNT = 0
 HOSTNAME = socket.gethostname()
 JUNK_PATTERN = r'.*\blogs?\b.*'
 
-JUNK_RD = redis.StrictRedis(host='rd1.hy01', port=6379, db=0)
+JUNK_RD = redis.StrictRedis(host='rd1.hy01', port=6373, db=0)
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
