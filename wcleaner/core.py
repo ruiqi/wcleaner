@@ -20,6 +20,7 @@ HOSTNAME = socket.gethostname()
 JUNK_PATTERN = r'.*\blogs?\b.*'
 
 JUNK_RD = redis.StrictRedis(host='rd1.hy01', port=6373, db=0)
+REMEMBERED_JUNKS = JUNK_RD.keys()
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
@@ -88,7 +89,7 @@ def wcleaner():
     parser.add_argument('-n', type=int, help='print the largest N files')
     parser.add_argument('--max-capacity', type=int, help='max capacity')
     parser.add_argument('--target-capacity', type=int, help='target capacity')
-    parser.add_argument('--auto', type=int, help='auto clean')
+    parser.add_argument('--auto', action='store_true', help='auto to clean remembered junks')
 
     args = parser.parse_args()
 
@@ -174,7 +175,11 @@ def wcleaner():
                     while True:
                         print
                         print "Junk: (%s) %s" %(human_size, re_path)
-                        p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d]:' %default_p)
+                        if args.auto and re_path in REMEMBERED_JUNKS:
+                            print 'Auto Clean %d days ago files (recently safe) ...' %default_p
+                            p = 'y'
+                        else:
+                            p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d]:' %default_p)
 
                         if p in ['y', 'yes', 'Y', 'YES']: p = default_p
 
@@ -213,7 +218,11 @@ def wcleaner():
                 else:
                     while True:
                         print
-                        p = raw_input('Empty the file "(%s) %s"? [y/n/l/d]:' %(human_size, re_path))
+                        if args.auto and re_path in REMEMBERED_JUNKS:
+                            print 'Auto Empty the file "(%s) %s ...' %(human_size, re_path)
+                            p = 'y'
+                        else:
+                            p = raw_input('Empty the file "(%s) %s"? [y/n/l/d]:' %(human_size, re_path))
 
                         if p in ['y', 'yes', 'Y', 'YES']:
                             print 'Empty ... '
