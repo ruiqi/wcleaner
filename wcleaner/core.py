@@ -9,12 +9,17 @@ import scandir
 import heapq
 import re
 import tempfile
+import socket
+import redis
 
 MAX_CAPACITY = 80
 TARGET_CAPACITY = 40
 IGNORE_FILES_COUNT = 0
 
+HOSTNAME = socket.gethostname()
 JUNK_PATTERN = r'.*\blogs?\b.*'
+
+JUNK_RD = redis.StrictRedis(host='rd1.hy01', port=6379, db=0)
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
@@ -83,6 +88,7 @@ def wcleaner():
     parser.add_argument('-n', type=int, help='print the largest N files')
     parser.add_argument('--max-capacity', type=int, help='max capacity')
     parser.add_argument('--target-capacity', type=int, help='target capacity')
+    parser.add_argument('--auto', type=int, help='auto clean')
 
     args = parser.parse_args()
 
@@ -153,79 +159,88 @@ def wcleaner():
                 #sort infos by mtime
                 v['infos'].sort(key=lambda x: x[2])
 
-                if re.match(JUNK_PATTERN, re_path):
-                    if '*' in re_path:
-                        v['infos'].sort(key=lambda x: x[2])
-                        mtime_2_3 = v['infos'][len(v['infos'])*2/3][2]
-                        now_ts = int(time.time())
+                if not re.match(JUNK_PATTERN, re_path): continue
 
-                        default_p = min((now_ts - mtime_2_3)/(24*60*60), 3)
+                #to cleaner
+                cancel_flag = False
+                
+                if '*' in re_path:
+                    v['infos'].sort(key=lambda x: x[2])
+                    mtime_2_3 = v['infos'][len(v['infos'])*2/3][2]
+                    now_ts = int(time.time())
 
-                        while True:
-                            print
-                            print "Junk: (%s) %s" %(human_size, re_path)
-                            p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d]:' %default_p)
+                    default_p = min((now_ts - mtime_2_3)/(24*60*60), 3)
 
-                            if p in ['y', 'yes', 'Y', 'YES']: p = default_p
+                    while True:
+                        print
+                        print "Junk: (%s) %s" %(human_size, re_path)
+                        p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d]:' %default_p)
 
-                            if p in ['d', 'delete', 'D', 'DELETE']: p = -1
+                        if p in ['y', 'yes', 'Y', 'YES']: p = default_p
 
-                            if p in ['l', 'less', 'L', 'LESS']:
-                                print 'List ...'
+                        if p in ['d', 'delete', 'D', 'DELETE']: p = -1
 
-                                temp = tempfile.NamedTemporaryFile() 
-                                temp.writelines(['%s\n' %path for path, size, mtime in v['infos']])
-                                temp.flush()
-                                os.system('less %s' %temp.name)
-                                temp.close()
-                                continue
+                        if p in ['l', 'less', 'L', 'LESS']:
+                            print 'List ...'
 
-                            try:
-                                days = int(p)
+                            temp = tempfile.NamedTemporaryFile() 
+                            temp.writelines(['%s\n' %path for path, size, mtime in v['infos']])
+                            temp.flush()
+                            os.system('less %s' %temp.name)
+                            temp.close()
+                            continue
 
-                                if days == -1:
-                                    print 'Delete ...'
-                                else:
-                                    print 'Clean %d days ago files ...' %days
+                        try:
+                            days = int(p)
 
-                                #clean $days ago files
-                                for path, size, mtime in v['infos']:
-                                    if now_ts - mtime > max(days*24*60*60, 3*60*60):
-                                        #print 'rm %s' %path
-                                        v['total-size'] -= size
-                                        os.remove(path)
-
-                            except ValueError:
-                                print 'Cancel ...'
-
-                            break
-                    else:
-                        while True:
-                            print
-                            p = raw_input('Empty the file "(%s) %s"? [y/n/l/d]:' %(human_size, re_path))
-
-                            if p in ['y', 'yes', 'Y', 'YES']:
-                                print 'Empty ... '
-
-                                #empty file
-                                #print 'empty %s' %re_path
-                                v['total-size'] -= v['infos'][0][1]
-                                open(re_path, 'w').close()
-                            elif p in ['d', 'delete', 'D', 'DELETE']:
-                                print 'Delete ... '
-
-                                #print 'delete %s' %re_path
-                                v['total-size'] -= v['infos'][0][1]
-                                os.remove(re_path)
-                            elif p in ['l', 'less', 'L', 'LESS']:
-                                print 'List ...'
-
-                                os.system('less %s' %re_path)
-                                continue
+                            if days == -1:
+                                print 'Delete ...'
                             else:
-                                print 'Cancel ...'
+                                print 'Clean %d days ago files ...' %days
 
-                            break
+                            #clean $days ago files
+                            for path, size, mtime in v['infos']:
+                                if now_ts - mtime > max(days*24*60*60, 3*60*60):
+                                    #print 'rm %s' %path
+                                    v['total-size'] -= size
+                                    os.remove(path)
+
+                        except ValueError:
+                            print 'Cancel ...'
+                            cancel_flag = True
+
+                        break
+                else:
+                    while True:
+                        print
+                        p = raw_input('Empty the file "(%s) %s"? [y/n/l/d]:' %(human_size, re_path))
+
+                        if p in ['y', 'yes', 'Y', 'YES']:
+                            print 'Empty ... '
+
+                            #empty file
+                            #print 'empty %s' %re_path
+                            v['total-size'] -= v['infos'][0][1]
+                            open(re_path, 'w').close()
+                        elif p in ['d', 'delete', 'D', 'DELETE']:
+                            print 'Delete ... '
+
+                            #print 'delete %s' %re_path
+                            v['total-size'] -= v['infos'][0][1]
+                            os.remove(re_path)
+                        elif p in ['l', 'less', 'L', 'LESS']:
+                            print 'List ...'
+
+                            os.system('less %s' %re_path)
+                            continue
+                        else:
+                            print 'Cancel ...'
+                            cancel_flag = True
+
+                        break
+
+                #submit junk
+                if not cancel_flag: JUNK_RD.sadd(re_path, HOSTNAME)
 
             Capacity = get_filesystem_capacity(Filesystem)
             #print Capacity, TARGET_CAPACITY
