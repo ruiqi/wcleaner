@@ -184,7 +184,17 @@ def wcleaner():
                             print 'Auto Clean %d days ago files (recently safe) ...' %default_p
                             p = 'y'
                         else:
-                            p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d]:' %default_p)
+                            p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d/h]:' %default_p)
+
+                        if p in ['h', 'help', 'H', 'HELP']:
+                            print 'Help ... Default: n'
+                            print 'y:\tExecute the default action.'
+                            print 'n:\tDo nothing.'
+                            print '$days:\tClean $days ago files (recently safe).'
+                            print 'l:\tLists the files to be cleaned.'
+                            print 'd:\tDelete all files (recently safe).'
+                            print 'h:\tPrint help message.'
+                            continue
 
                         if p in ['y', 'yes', 'Y', 'YES']: p = default_p
 
@@ -228,6 +238,15 @@ def wcleaner():
                             p = 'y'
                         else:
                             p = raw_input('Empty the file "(%s) %s"? [y/n/l/d]:' %(human_size, re_path))
+
+                        if p in ['h', 'help', 'H', 'HELP']:
+                            print 'Help ... Default: n'
+                            print 'y:\tExecute the default action.'
+                            print 'n:\tDo nothing.'
+                            print 'l:\tLists the file contents to be cleaned.'
+                            print 'd:\tDelete the file.'
+                            print 'h:\tPrint help message.'
+                            continue
 
                         if p in ['y', 'yes', 'Y', 'YES']:
                             print 'Empty ... '
