@@ -16,16 +16,31 @@ MAX_CAPACITY = 80
 TARGET_CAPACITY = 40
 IGNORE_FILES_COUNT = 0
 
-HOSTNAME = socket.gethostname()
 JUNK_PATTERN = r'.*\blogs?\b.*'
 
-try:
-    JUNK_RD = redis.StrictRedis(host='rd1.hy01', port=6373, db=0)
-    JUNK_RD.info()
-except:
-    JUNK_RD = None
+class JunkCenter(object):
+    def __init__(self, host, port, grey_db, white_db, black_db):
+        self.grey_rd = redis.StrictRedis(host=host, port=port, db=grey_db)
+        self.white_rd = redis.StrictRedis(host=host, port=port, db=white_db)
+        self.black_rd = redis.StrictRedis(host=host, port=port, db=black_db)
 
-REMEMBERED_JUNKS = JUNK_RD.keys() if JUNK_RD else []
+        self.hostname = socket.gethostname()
+
+    def submit(self, junk):
+        if self.black_rd.exists(junk):
+            self.black_rd.sadd(junk, self.hostname)
+        elif self.white_rd.exists(junk):
+            self.white_rd.sadd(junk, self.hostname)
+        else:
+            self.grey_rd.sadd(junk, self.hostname)
+
+    def is_white(self, junk):
+        return not self.black_rd.exists(junk) and self.white_rd.exists(junk)
+
+    def is_safe_white(self, junk):
+        return not self.black_rd.exists(junk) and self.hostname in self.white_rd.smembers(junk)
+
+JUNK_CENTER = JunkCenter(host='rd1.hy01', port=6373, grey_db=0, white_db=1, black_db=2)
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
@@ -94,7 +109,8 @@ def wcleaner():
     parser.add_argument('-n', type=int, help='print the largest N files')
     parser.add_argument('--max-capacity', type=int, help='max capacity')
     parser.add_argument('--target-capacity', type=int, help='target capacity')
-    parser.add_argument('--auto', action='store_true', help='auto to clean remembered junks')
+    parser.add_argument('--auto', action='store_true', help='auto to clean junks in whitelist')
+    parser.add_argument('--safe-auto', action='store_true', help='auto to clean junks in whitelist and hostname matched')
 
     args = parser.parse_args()
 
@@ -180,7 +196,7 @@ def wcleaner():
                     while True:
                         print
                         print "Junk: (%s) %s" %(human_size, re_path)
-                        if args.auto and re_path in REMEMBERED_JUNKS:
+                        if args.auto and JUNK_CENTER.is_white(re_path) or args.safe_auto and JUNK_CENTER.is_safe_white(re_path):
                             print 'Auto Clean %d days ago files (recently safe) ...' %default_p
                             p = 'y'
                         else:
@@ -233,11 +249,11 @@ def wcleaner():
                 else:
                     while True:
                         print
-                        if args.auto and re_path in REMEMBERED_JUNKS:
+                        if args.auto and JUNK_CENTER.is_white(re_path) or args.safe_auto and JUNK_CENTER.is_safe_white(re_path):
                             print 'Auto Empty the file "(%s) %s ...' %(human_size, re_path)
                             p = 'y'
                         else:
-                            p = raw_input('Empty the file "(%s) %s"? [y/n/l/d]:' %(human_size, re_path))
+                            p = raw_input('Empty the file "(%s) %s"? [y/n/l/d/h]:' %(human_size, re_path))
 
                         if p in ['h', 'help', 'H', 'HELP']:
                             print 'Help ... Default: n'
@@ -273,7 +289,7 @@ def wcleaner():
                         break
 
                 #submit junk
-                if JUNK_RD and not cancel_flag: JUNK_RD.sadd(re_path, HOSTNAME)
+                if not cancel_flag: JUNK_CENTER.submit(re_path)
 
             Capacity = get_filesystem_capacity(Filesystem)
             #print Capacity, TARGET_CAPACITY
