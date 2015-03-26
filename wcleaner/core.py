@@ -19,8 +19,13 @@ IGNORE_FILES_COUNT = 0
 HOSTNAME = socket.gethostname()
 JUNK_PATTERN = r'.*\blogs?\b.*'
 
-JUNK_RD = redis.StrictRedis(host='rd1.hy01', port=6373, db=0)
-REMEMBERED_JUNKS = JUNK_RD.keys()
+try:
+    JUNK_RD = redis.StrictRedis(host='rd1.hy01', port=6373, db=0)
+    JUNK_RD.info()
+except:
+    JUNK_RD = None
+
+REMEMBERED_JUNKS = JUNK_RD.keys() if JUNK_RD else []
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
@@ -249,7 +254,7 @@ def wcleaner():
                         break
 
                 #submit junk
-                if not cancel_flag: JUNK_RD.sadd(re_path, HOSTNAME)
+                if JUNK_RD and not cancel_flag: JUNK_RD.sadd(re_path, HOSTNAME)
 
             Capacity = get_filesystem_capacity(Filesystem)
             #print Capacity, TARGET_CAPACITY
