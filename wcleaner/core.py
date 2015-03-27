@@ -331,7 +331,7 @@ def wcleaner():
                         print '%s\t%d\t%s\t%s (deleted)' %(get_human_size(deleted_file[1]), deleted_file[2], deleted_file[3], deleted_file[0])
             else:
                 print
-                print 'Now the %s (%s) capacity %d%% < %d%%' %(Point, Filesystem, Capacity, MAX_CAPACITY)
+                print 'Now the %s (%s) capacity is %d%% < %d%%' %(Point, Filesystem, Capacity, MAX_CAPACITY)
 
             print
             print
