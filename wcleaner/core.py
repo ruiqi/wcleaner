@@ -116,7 +116,7 @@ def wcleaner():
 
     if args.max_capacity: MAX_CAPACITY = args.max_capacity
     if args.target_capacity: TARGET_CAPACITY = args.target_capacity
-    TARGET_CAPACITY = min(TARGET_CAPACITY, MAX_CAPACITY/2)
+    TARGET_CAPACITY = min(TARGET_CAPACITY, int(MAX_CAPACITY*0.8))
     #print MAX_CAPACITY, TARGET_CAPACITY
 
     for Point, (Filesystem, Size, Capacity) in MOUNT_POINTS.items():
