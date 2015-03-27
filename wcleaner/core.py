@@ -170,10 +170,13 @@ def wcleaner():
             nlargest_files = heapq.nlargest(20, group_files.values(), key=lambda v: v['total-size'])
 
             #clean for largest 10
-            for v in nlargest_files[:10]:
+            for i, v in enumerate(nlargest_files[:10]):
                 #update capacity
                 Capacity = get_filesystem_capacity(Filesystem)
                 if Capacity <= TARGET_CAPACITY: break
+
+                #stop ... need clean other files
+                if Size*(Capacity-MAX_CAPACITY)/100 > v['total-size']*(10-i): break
 
                 human_size = get_human_size(v['total-size'])
                 re_path = get_re_path(zip(*v['infos'])[0])
@@ -183,7 +186,7 @@ def wcleaner():
 
                 if not re.match(JUNK_PATTERN, re_path): continue
 
-                #to cleaner
+                #cancel cleaner flag
                 cancel_flag = False
                 
                 if '*' in re_path:
@@ -292,45 +295,43 @@ def wcleaner():
                 if not cancel_flag: JUNK_CENTER.submit(re_path)
 
             Capacity = get_filesystem_capacity(Filesystem)
-            #print Capacity, TARGET_CAPACITY
-            if Capacity > TARGET_CAPACITY:
+            if Capacity > MAX_CAPACITY:
                 print
-                print 'Warning: Can not reduce capacity < %d%%. This is the largest 10 files:' %TARGET_CAPACITY
+                print 'Warning: Can not reduce capacity < %d%%. This is the largest 10 files:' %MAX_CAPACITY
                 for v in sorted(nlargest_files, key=lambda v: v['total-size'], reverse=True)[:10]:
                     print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['infos'])[0]))
 
-                if Capacity > MAX_CAPACITY:
-                    #lsof | grep tmp files
-                    deleted_files = []
-                    current_pid = os.getpid()
-                    current_tmp_file = None
-                    for line in os.popen("lsof %s | grep -E '\(deleted\)$'" %Point).readlines():
-                        cells = line.split()
-                        command = cells[0]
-                        pid = int(cells[1])
-                        fd = int(cells[3][:-1])
-                        proc_fd = '/proc/%d/fd/%d' %(pid, fd)
+                #lsof | grep tmp files
+                deleted_files = []
+                current_pid = os.getpid()
+                current_tmp_file = None
+                for line in os.popen("lsof %s | grep -E '\(deleted\)$'" %Point).readlines():
+                    cells = line.split()
+                    command = cells[0]
+                    pid = int(cells[1])
+                    fd = int(cells[3][:-1])
+                    proc_fd = '/proc/%d/fd/%d' %(pid, fd)
 
-                        try:
-                            stat = os.stat(proc_fd)
-                            size = stat.st_blocks*stat.st_blksize/1024/8
-                        except OSError:
-                            continue
+                    try:
+                        stat = os.stat(proc_fd)
+                        size = stat.st_blocks*stat.st_blksize/1024/8
+                    except OSError:
+                        continue
 
-                        if pid == current_pid: current_tmp_file = cells[-2]
+                    if pid == current_pid: current_tmp_file = cells[-2]
 
-                        deleted_files.append((cells[-2], size, pid, command))
+                    deleted_files.append((cells[-2], size, pid, command))
 
-                    deleted_files = [deleted_file for deleted_file in deleted_files if deleted_file[0] != current_tmp_file]
-                    if deleted_files:
-                        print
-                        print 'Warning: These files have been deleted, but not free up space:'
-                        print 'SIZE\tPID\tCOMMAND\tFILE'
-                        for deleted_file in deleted_files:
-                            print '%s\t%d\t%s\t%s (deleted)' %(get_human_size(deleted_file[1]), deleted_file[2], deleted_file[3], deleted_file[0])
+                deleted_files = [deleted_file for deleted_file in deleted_files if deleted_file[0] != current_tmp_file]
+                if deleted_files:
+                    print
+                    print 'Warning: These files have been deleted, but not free up space:'
+                    print 'SIZE\tPID\tCOMMAND\tFILE'
+                    for deleted_file in deleted_files:
+                        print '%s\t%d\t%s\t%s (deleted)' %(get_human_size(deleted_file[1]), deleted_file[2], deleted_file[3], deleted_file[0])
             else:
                 print
-                print 'Now the %s (%s) capacity < %d%%' %(Point, Filesystem, TARGET_CAPACITY)
+                print 'Now the %s (%s) capacity %d%% < %d%%' %(Point, Filesystem, Capacity, MAX_CAPACITY)
 
             print
             print
