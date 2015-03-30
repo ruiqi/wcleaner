@@ -18,13 +18,10 @@ setup(
         'wcleaner',
     ],
 
-    data_files = [
-        ('etc', ['etc/wcleaner.conf']),
-    ],
-
     entry_points = {
         'console_scripts': [
             'wcleaner = wcleaner.core:wcleaner',
+            'echo_wcleaner_conf = wcleaner.core:echo_wcleaner_conf',
         ]
     },
     install_requires = [

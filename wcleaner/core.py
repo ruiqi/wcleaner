@@ -11,16 +11,14 @@ import re
 import tempfile
 import socket
 import redis
-from pkg_resources import Requirement, resource_filename
+from settings import *
 
 conf_paths = [
     os.path.join(os.path.expanduser('~'), '.wcleaner.conf'),
     '/etc/wcleaner.conf',
-    resource_filename(Requirement.parse('wcleaner'), 'etc/wcleaner.conf'),
 ]
 
 for conf_path in conf_paths:
-    print conf_path
     try:
         with open(conf_path) as conf_f:
             exec conf_f.read()
@@ -60,26 +58,40 @@ class JunkCenter(object):
         self.hostname = socket.gethostname()
 
     def submit(self, junk):
-        if self.black_rd.exists(junk):
-            self.black_rd.sadd(junk, self.hostname)
-        elif self.white_rd.exists(junk):
-            self.white_rd.sadd(junk, self.hostname)
-        else:
-            self.grey_rd.sadd(junk, self.hostname)
+        try:
+            if self.black_rd.exists(junk):
+                self.black_rd.sadd(junk, self.hostname)
+            elif self.white_rd.exists(junk):
+                self.white_rd.sadd(junk, self.hostname)
+            else:
+                self.grey_rd.sadd(junk, self.hostname)
+
+            print 'submit .. ok'
+        except:
+            pass
 
     def is_dangerous(self, junk):
         '''in redlist'''
-        return self.red_rd.exists(junk)
+        try:
+            if self.red_rd.exists(junk): return True
+        except:
+            pass
+
+        return False
 
     def is_safe(self, junk):
         '''
         not in redlist and not in blacklist
         in whitelist or in greylist and hostname marched
         '''
-        if self.red_rd.exists(junk) or self.black_rd.exists(junk): return False
 
-        if self.white_rd.exists(junk): return True
-        if self.grey_rd.exists(jun) and self.hostname in self.grey_rd.smembers(junk): return True
+        try:
+            if self.red_rd.exists(junk) or self.black_rd.exists(junk): return False
+
+            if self.white_rd.exists(junk): return True
+            if self.grey_rd.exists(junk) and self.hostname in self.grey_rd.smembers(junk): return True
+        except:
+            pass
 
         return False
 
@@ -380,6 +392,15 @@ def wcleaner():
 
             print
             print
+
+
+def echo_wcleaner_conf():
+    from pkg_resources import Requirement, resource_filename
+
+    conf = resource_filename(Requirement.parse('wcleaner'), 'wcleaner/settings.py')
+
+    with open(conf) as conf_f:
+        print conf_f.read(),
 
 if __name__ == '__main__':
     wcleaner()
