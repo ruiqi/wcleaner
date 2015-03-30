@@ -11,18 +11,51 @@ import re
 import tempfile
 import socket
 import redis
+from pkg_resources import Requirement, resource_filename
 
-MAX_CAPACITY = 90
-TARGET_CAPACITY = 50
-IGNORE_FILES_COUNT = 0
+conf_paths = [
+    os.path.join(os.path.expanduser('~'), '.wcleaner.conf'),
+    '/etc/wcleaner.conf',
+    resource_filename(Requirement.parse('wcleaner'), 'etc/wcleaner.conf'),
+]
 
-JUNK_PATTERN = r'.*\blogs?\b.*'
+for conf_path in conf_paths:
+    print conf_path
+    try:
+        with open(conf_path) as conf_f:
+            exec conf_f.read()
+        break
+    except IOError:
+        pass
 
 class JunkCenter(object):
-    def __init__(self, host, port, grey_db, white_db, black_db):
+    '''
+    ===Junk Center===
+
+    grey/white/black/red list
+
+    list: [
+        junk1: set([
+            hostname1,
+            hostname2,
+        ]),
+        junk2: set([
+            hostname1,
+            hostname2,
+        ]),
+    ]
+
+    greylist:  '--auto' will clean junks in greylist and hostname marched. All junks cleaned up by wcleaner will submit to here. #safe or normal
+    whitelist: '--auto' will clean junks in whitelist. #safe
+    blacklist: All junks in blacklist can not be auto cleaned up. #normal
+    readlist:  All junks in redlist can not be cleaned up. #dangerous
+    '''
+
+    def __init__(self, host, port, grey_db, white_db, black_db, red_db):
         self.grey_rd = redis.StrictRedis(host=host, port=port, db=grey_db)
         self.white_rd = redis.StrictRedis(host=host, port=port, db=white_db)
         self.black_rd = redis.StrictRedis(host=host, port=port, db=black_db)
+        self.red_rd = redis.StrictRedis(host=host, port=port, db=red_db)
 
         self.hostname = socket.gethostname()
 
@@ -34,13 +67,23 @@ class JunkCenter(object):
         else:
             self.grey_rd.sadd(junk, self.hostname)
 
-    def is_white(self, junk):
-        return not self.black_rd.exists(junk) and self.white_rd.exists(junk)
+    def is_dangerous(self, junk):
+        '''in redlist'''
+        return self.red_rd.exists(junk)
 
-    def is_safe_white(self, junk):
-        return not self.black_rd.exists(junk) and self.hostname in self.white_rd.smembers(junk)
+    def is_safe(self, junk):
+        '''
+        not in redlist and not in blacklist
+        in whitelist or in greylist and hostname marched
+        '''
+        if self.red_rd.exists(junk) or self.black_rd.exists(junk): return False
 
-JUNK_CENTER = JunkCenter(host='rd1.hy01', port=6373, grey_db=0, white_db=1, black_db=2)
+        if self.white_rd.exists(junk): return True
+        if self.grey_rd.exists(jun) and self.hostname in self.grey_rd.smembers(junk): return True
+
+        return False
+
+JUNK_CENTER = JunkCenter(JUNK_CENTER_HOST, JUNK_CENTER_PORT, *JUNK_CENTER_DBS)
 
 MOUNT_POINTS = {}
 for line in os.popen('df -Plk').readlines()[1:]:
@@ -103,14 +146,13 @@ def get_human_size(size):
 def wcleaner():
     global MAX_CAPACITY, TARGET_CAPACITY, IGNORE_FILES_COUNT
 
-    parser = argparse.ArgumentParser(description='Wandoujia Cleaner')
+    parser = argparse.ArgumentParser(description='Disk Space Cleaner')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('FILESYSTEM', type=str, nargs='?', help='the filesystem to clean')
     parser.add_argument('-n', type=int, help='print the largest N files')
-    parser.add_argument('--max-capacity', type=int, help='max capacity')
-    parser.add_argument('--target-capacity', type=int, help='target capacity')
-    parser.add_argument('--auto', action='store_true', help='auto to clean junks in whitelist')
-    parser.add_argument('--safe-auto', action='store_true', help='auto to clean junks in whitelist and hostname matched')
+    parser.add_argument('--max-capacity', type=int, help='max capacity. default: 90')
+    parser.add_argument('--target-capacity', type=int, help='target capacity. default: 50')
+    parser.add_argument('--auto', action='store_true', help='auto to clean junks (in whitelist, in greylist and marched hostname)')
 
     args = parser.parse_args()
 
@@ -186,6 +228,9 @@ def wcleaner():
 
                 if not re.match(JUNK_PATTERN, re_path): continue
 
+                #dangerous
+                if JUNK_CENTER.is_dangerous(re_path):continue
+
                 #cancel cleaner flag
                 cancel_flag = False
                 
@@ -199,7 +244,7 @@ def wcleaner():
                     while True:
                         print
                         print "Junk: (%s) %s" %(human_size, re_path)
-                        if args.auto and JUNK_CENTER.is_white(re_path) or args.safe_auto and JUNK_CENTER.is_safe_white(re_path):
+                        if args.auto and JUNK_CENTER.is_safe(re_path):
                             print 'Auto Clean %d days ago files (recently safe) ...' %default_p
                             p = 'y'
                         else:
@@ -252,7 +297,7 @@ def wcleaner():
                 else:
                     while True:
                         print
-                        if args.auto and JUNK_CENTER.is_white(re_path) or args.safe_auto and JUNK_CENTER.is_safe_white(re_path):
+                        if args.auto and JUNK_CENTER.is_safe(re_path):
                             print 'Auto Empty the file "(%s) %s ...' %(human_size, re_path)
                             p = 'y'
                         else:
