@@ -31,6 +31,12 @@ True
 >>> for key in sorted(JUNK_CENTER.grey_rd.keys('*')): print key
 >>> JUNK_CENTER.is_safe('/tmp/test.log.2015-*-05')
 False
+>>> JUNK_CENTER = JunkCenter('your redis host', 6379, *[12, 13, 14, 15])
+>>> JUNK_CENTER.is_safe('/tmp/test.log.2015-*-05')
+False
+>>> JUNK_CENTER.is_dangerous('/tmp/test.log.2015-*-05')
+False
+>>> JUNK_CENTER.submit('/tmp/test.log.*-*-*')
 '''
 
 import re
@@ -85,34 +91,37 @@ class JunkCenter(object):
 
     def contain(self, rd, junk):
         similar_junk = self.get_similar_junk(rd, junk)
-        if similar_junk and similar_junk.count('*') >= junk.count('*'): return True
+        if not similar_junk: return False
+
+        if similar_junk.count('*') >= junk.count('*'):
+            if rd != self.grey_rd: return True
+
+            if self.hostname in rd.smembers(similar_junk): return True
 
         return False
 
     def submit(self, junk):
         try:
-            if self.black_rd.exists(junk):
-                pass
-            elif self.white_rd.exists(junk):
-                pass
-            else:
-                similar_junk = self.get_similar_junk(self.grey_rd, junk)
-                if similar_junk is None: similar_junk = junk
+            for rd in [self.black_rd, self.white_rd, self.grey_rd]:
+                if self.contain(rd, junk): return
 
-                if similar_junk.count('*') >= junk.count('*'):
-                    self.grey_rd.sadd(similar_junk, self.hostname)
-                else:
-                    self.grey_rd.sadd(junk, self.hostname)
-                    self.grey_rd.sunionstore(junk, similar_junk)
-                    self.grey_rd.delete(similar_junk)
-        except:
+            similar_junk = self.get_similar_junk(self.grey_rd, junk)
+            if similar_junk is None: similar_junk = junk
+
+            if similar_junk.count('*') >= junk.count('*'):
+                self.grey_rd.sadd(similar_junk, self.hostname)
+            else:
+                self.grey_rd.sadd(junk, self.hostname)
+                self.grey_rd.sunionstore(junk, similar_junk)
+                self.grey_rd.delete(similar_junk)
+        except redis.ConnectionError:
             pass
 
     def is_dangerous(self, junk):
         '''in redlist'''
         try:
             if self.contain(self.red_rd, junk): return True
-        except:
+        except redis.ConnectionError:
             pass
 
         return False
@@ -131,7 +140,7 @@ class JunkCenter(object):
             if self.contain(self.grey_rd, junk):
                 similar_junk = self.get_similar_junk(self.grey_rd, junk)
                 if self.hostname in self.grey_rd.smembers(similar_junk): return True
-        except:
+        except redis.ConnectionError:
             pass
 
         return False

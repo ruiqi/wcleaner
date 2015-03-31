@@ -11,5 +11,5 @@ JUNK_PATTERN = r'.*\blogs?\b.*'
 
 #junk center redis
 JUNK_CENTER_HOST = 'your redis host'
-JUNK_CENTER_PORT = 'your redis port'
+JUNK_CENTER_PORT = 6379
 JUNK_CENTER_DBS = [0, 1, 2, 3] #grey/white/black/red dbs
