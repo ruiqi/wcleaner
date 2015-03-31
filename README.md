@@ -4,12 +4,12 @@
 * Automatic identification log files.
 * Automatic aggregation similar files.
 * Automatic find deleted files which is not free up space.
-* Auto delete log files when enable junk center.
+* Automatic delete log files when enable junk center.
 * Junk center support greylist, whitelist, blacklist, redlist.
 
 ## Install
 ````bash
-python setup.py install
+pip install wcleaner
 ````
 
 ## Usage
@@ -31,7 +31,7 @@ optional arguments:
                         max capacity. default: 90
   --target-capacity TARGET_CAPACITY
                         target capacity. default: 50
-  --auto                auto to clean junks (in whitelist, in greylist and
+  --auto                automatic clean junks (in whitelist, in greylist and
                         marched hostname)
 ````
 
@@ -58,7 +58,7 @@ list: [
 ]
 ```
 
-* greylist:  '--auto' will clean junks in greylist and hostname marched. All junks cleaned up by wcleaner will submit to here. #safe or normal
-* whitelist: '--auto' will clean junks in whitelist. #safe
-* blacklist: All junks in blacklist can not be auto cleaned up. #normal
-* readlist:  All junks in redlist can not be cleaned up. #dangerous
+* greylist:  [--auto] Junk will be automatic cleaned if hostname marched in greylist. Wcleaner clean up junk and submit it to here. #safe or normal
+* whitelist: [--auto] Junk will be automatic cleaned if it is in whitelist. #safe
+* blacklist: All junks in blacklist can not be automatic cleaned up. #normal
+* redlist:  All junks in redlist can not be cleaned up. #dangerous
