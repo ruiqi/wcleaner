@@ -66,7 +66,6 @@ class JunkCenter(object):
             else:
                 self.grey_rd.sadd(junk, self.hostname)
 
-            print 'submit .. ok'
         except:
             pass
 
