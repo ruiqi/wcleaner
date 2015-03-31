@@ -9,7 +9,7 @@
 
 ## Install
 ````bash
-python setup.py install
+pip install wcleaner
 ````
 
 ## Usage
