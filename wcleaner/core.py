@@ -9,9 +9,9 @@ import scandir
 import heapq
 import re
 import tempfile
-import socket
 import redis
 from settings import *
+from junkcenter import JunkCenter
 
 conf_paths = [
     os.path.join(os.path.expanduser('~'), '.wcleaner.conf'),
@@ -25,74 +25,6 @@ for conf_path in conf_paths:
         break
     except IOError:
         pass
-
-class JunkCenter(object):
-    '''
-    ===Junk Center===
-
-    grey/white/black/red list
-
-    list: [
-        junk1: set([
-            hostname1,
-            hostname2,
-        ]),
-        junk2: set([
-            hostname1,
-            hostname2,
-        ]),
-    ]
-
-    greylist:  '--auto' will clean junks in greylist and hostname marched. All junks cleaned up by wcleaner will submit to here. #safe or normal
-    whitelist: '--auto' will clean junks in whitelist. #safe
-    blacklist: All junks in blacklist can not be auto cleaned up. #normal
-    readlist:  All junks in redlist can not be cleaned up. #dangerous
-    '''
-
-    def __init__(self, host, port, grey_db, white_db, black_db, red_db):
-        self.grey_rd = redis.StrictRedis(host=host, port=port, db=grey_db)
-        self.white_rd = redis.StrictRedis(host=host, port=port, db=white_db)
-        self.black_rd = redis.StrictRedis(host=host, port=port, db=black_db)
-        self.red_rd = redis.StrictRedis(host=host, port=port, db=red_db)
-
-        self.hostname = socket.gethostname()
-
-    def submit(self, junk):
-        try:
-            if self.black_rd.exists(junk):
-                self.black_rd.sadd(junk, self.hostname)
-            elif self.white_rd.exists(junk):
-                self.white_rd.sadd(junk, self.hostname)
-            else:
-                self.grey_rd.sadd(junk, self.hostname)
-
-        except:
-            pass
-
-    def is_dangerous(self, junk):
-        '''in redlist'''
-        try:
-            if self.red_rd.exists(junk): return True
-        except:
-            pass
-
-        return False
-
-    def is_safe(self, junk):
-        '''
-        not in redlist and not in blacklist
-        in whitelist or in greylist and hostname marched
-        '''
-
-        try:
-            if self.red_rd.exists(junk) or self.black_rd.exists(junk): return False
-
-            if self.white_rd.exists(junk): return True
-            if self.grey_rd.exists(junk) and self.hostname in self.grey_rd.smembers(junk): return True
-        except:
-            pass
-
-        return False
 
 JUNK_CENTER = JunkCenter(JUNK_CENTER_HOST, JUNK_CENTER_PORT, *JUNK_CENTER_DBS)
 
