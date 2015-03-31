@@ -117,13 +117,16 @@ class JunkCenter(object):
         in whitelist or in greylist and hostname marched
         '''
 
-        if self.contain(self.red_rd, junk) or self.contain(self.black_rd, junk): return False
+        try:
+            if self.contain(self.red_rd, junk) or self.contain(self.black_rd, junk): return False
 
-        if self.contain(self.white_rd, junk): return True
+            if self.contain(self.white_rd, junk): return True
 
-        if self.contain(self.grey_rd, junk):
-            similar_junk = self.get_similar_junk(self.grey_rd, junk)
-            if self.hostname in self.grey_rd.smembers(similar_junk): return True
+            if self.contain(self.grey_rd, junk):
+                similar_junk = self.get_similar_junk(self.grey_rd, junk)
+                if self.hostname in self.grey_rd.smembers(similar_junk): return True
+        except:
+            pass
 
         return False
 
