@@ -291,7 +291,7 @@ def wcleaner():
 
 
                 FILES_TOTAL_SIZE = sum([v['total-size'] for v in group_files.values()])
-                print 'miss capa:', Capacity-FILES_TOTAL_SIZE*100/Size
+                #print 'miss capa:', Capacity-FILES_TOTAL_SIZE*100/Size
 
                 #when miss capacity > 20%
                 if Capacity-FILES_TOTAL_SIZE*100/Size >= 20:
@@ -317,11 +317,12 @@ def wcleaner():
                         deleted_files.append((cells[-2], size, pid, command))
 
                     deleted_files = [deleted_file for deleted_file in deleted_files if deleted_file[0] != current_tmp_file]
+                    deleted_files.sort(key=lambda deleted_file: deleted_file[1], reverse=True)
                     if deleted_files:
                         print
-                        print 'Warning: These files have been deleted, but not free up space:'
+                        print 'Warning: Some files have been deleted, but not free up space. This is the largest 10 files:'
                         print 'SIZE\tPID\tCOMMAND\tFILE'
-                        for deleted_file in deleted_files:
+                        for deleted_file in deleted_files[:10]:
                             print '%s\t%d\t%s\t%s (deleted)' %(get_human_size(deleted_file[1]), deleted_file[2], deleted_file[3], deleted_file[0])
             else:
                 print
