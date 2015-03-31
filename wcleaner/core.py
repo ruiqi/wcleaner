@@ -300,11 +300,14 @@ def wcleaner():
                     current_pid = os.getpid()
                     current_tmp_file = None
                     for line in os.popen("lsof %s | grep -E '\(deleted\)$'" %Point).readlines():
-                        cells = line.split()
-                        command = cells[0]
-                        pid = int(cells[1])
-                        fd = int(cells[3][:-1])
-                        proc_fd = '/proc/%d/fd/%d' %(pid, fd)
+                        try:
+                            cells = line.split()
+                            command = cells[0]
+                            pid = int(cells[1])
+                            fd = int(cells[3][:-1])
+                            proc_fd = '/proc/%d/fd/%d' %(pid, fd)
+                        except ValueError:
+                            continue
 
                         try:
                             stat = os.stat(proc_fd)
