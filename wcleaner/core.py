@@ -289,34 +289,40 @@ def wcleaner():
                 for v in sorted(nlargest_files, key=lambda v: v['total-size'], reverse=True)[:10]:
                     print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['infos'])[0]))
 
-                #lsof | grep tmp files
-                deleted_files = []
-                current_pid = os.getpid()
-                current_tmp_file = None
-                for line in os.popen("lsof %s | grep -E '\(deleted\)$'" %Point).readlines():
-                    cells = line.split()
-                    command = cells[0]
-                    pid = int(cells[1])
-                    fd = int(cells[3][:-1])
-                    proc_fd = '/proc/%d/fd/%d' %(pid, fd)
 
-                    try:
-                        stat = os.stat(proc_fd)
-                        size = stat.st_blocks*stat.st_blksize/1024/8
-                    except OSError:
-                        continue
+                FILES_TOTAL_SIZE = sum([v['total-size'] for v in group_files.values()])
+                print 'miss capa:', Capacity-FILES_TOTAL_SIZE*100/Size
 
-                    if pid == current_pid: current_tmp_file = cells[-2]
+                #when miss capacity > 20%
+                if Capacity-FILES_TOTAL_SIZE*100/Size >= 20:
+                    #lsof | grep deleted files
+                    deleted_files = []
+                    current_pid = os.getpid()
+                    current_tmp_file = None
+                    for line in os.popen("lsof %s | grep -E '\(deleted\)$'" %Point).readlines():
+                        cells = line.split()
+                        command = cells[0]
+                        pid = int(cells[1])
+                        fd = int(cells[3][:-1])
+                        proc_fd = '/proc/%d/fd/%d' %(pid, fd)
 
-                    deleted_files.append((cells[-2], size, pid, command))
+                        try:
+                            stat = os.stat(proc_fd)
+                            size = stat.st_blocks*stat.st_blksize/1024/8
+                        except OSError:
+                            continue
 
-                deleted_files = [deleted_file for deleted_file in deleted_files if deleted_file[0] != current_tmp_file]
-                if deleted_files:
-                    print
-                    print 'Warning: These files have been deleted, but not free up space:'
-                    print 'SIZE\tPID\tCOMMAND\tFILE'
-                    for deleted_file in deleted_files:
-                        print '%s\t%d\t%s\t%s (deleted)' %(get_human_size(deleted_file[1]), deleted_file[2], deleted_file[3], deleted_file[0])
+                        if pid == current_pid: current_tmp_file = cells[-2]
+
+                        deleted_files.append((cells[-2], size, pid, command))
+
+                    deleted_files = [deleted_file for deleted_file in deleted_files if deleted_file[0] != current_tmp_file]
+                    if deleted_files:
+                        print
+                        print 'Warning: These files have been deleted, but not free up space:'
+                        print 'SIZE\tPID\tCOMMAND\tFILE'
+                        for deleted_file in deleted_files:
+                            print '%s\t%d\t%s\t%s (deleted)' %(get_human_size(deleted_file[1]), deleted_file[2], deleted_file[3], deleted_file[0])
             else:
                 print
                 print 'Now the %s (%s) capacity is %d%% < %d%%' %(Point, Filesystem, Capacity, MAX_CAPACITY)
