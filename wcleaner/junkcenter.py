@@ -13,7 +13,6 @@ True
 >>> JUNK_CENTER.submit('/tmp/test.log.2015-*-*')
 >>> for key in sorted(JUNK_CENTER.grey_rd.keys('*')): print key
 /tmp/test.log.2015-*-*
-/tmp/test.log.2015-03-*
 >>> JUNK_CENTER.is_safe('/tmp/test.log.2015-03-05')
 True
 >>> for key in sorted(JUNK_CENTER.grey_rd.keys('*')): print key
@@ -23,7 +22,6 @@ False
 >>> JUNK_CENTER.submit('/tmp/test.log.*-*-*')
 >>> for key in sorted(JUNK_CENTER.grey_rd.keys('*')): print key
 /tmp/test.log.*-*-*
-/tmp/test.log.2015-*-*
 >>> JUNK_CENTER.is_safe('/tmp/test.log.2015-*-05')
 True
 >>> for key in sorted(JUNK_CENTER.grey_rd.keys('*')): print key
@@ -98,7 +96,15 @@ class JunkCenter(object):
             elif self.white_rd.exists(junk):
                 pass
             else:
-                self.grey_rd.sadd(junk, self.hostname)
+                similar_junk = self.get_similar_junk(self.grey_rd, junk)
+                if similar_junk is None: similar_junk = junk
+
+                if similar_junk.count('*') >= junk.count('*'):
+                    self.grey_rd.sadd(similar_junk, self.hostname)
+                else:
+                    self.grey_rd.sadd(junk, self.hostname)
+                    self.grey_rd.sunionstore(junk, similar_junk)
+                    self.grey_rd.delete(similar_junk)
         except:
             pass
 
