@@ -96,6 +96,7 @@ def wcleaner():
     parser.add_argument('--max-capacity', type=int, help='max capacity. default: 90')
     parser.add_argument('--target-capacity', type=int, help='target capacity. default: 50')
     parser.add_argument('--auto', action='store_true', help='auto to clean junks (in whitelist, in greylist and marched hostname)')
+    parser.add_argument('--no-interface', action='store_true', help='no human intervention')
 
     args = parser.parse_args()
 
@@ -186,11 +187,14 @@ def wcleaner():
 
                     while True:
                         print
-                        print "Junk: (%s) %s" %(human_size, re_path)
                         if args.auto and JUNK_CENTER.is_safe(re_path):
+                            print "Junk: (%s) %s" %(human_size, re_path)
                             print 'Auto Clean %d days ago files (recently safe) ...' %default_p
                             p = 'y'
+                        if args.no_interface:
+                            break
                         else:
+                            print "Junk: (%s) %s" %(human_size, re_path)
                             p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d/h]:' %default_p)
 
                         if p in ['h', 'help', 'H', 'HELP']:
@@ -243,6 +247,8 @@ def wcleaner():
                         if args.auto and JUNK_CENTER.is_safe(re_path):
                             print 'Auto Empty the file "(%s) %s ...' %(human_size, re_path)
                             p = 'y'
+                        if args.no_interface:
+                            break
                         else:
                             p = raw_input('Empty the file "(%s) %s"? [y/n/l/d/h]:' %(human_size, re_path))
 
