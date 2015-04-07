@@ -191,7 +191,7 @@ def wcleaner():
                             print "Junk: (%s) %s" %(human_size, re_path)
                             print 'Auto Clean %d days ago files (recently safe) ...' %default_p
                             p = 'y'
-                        if args.no_interface:
+                        elif args.no_interface:
                             break
                         else:
                             print "Junk: (%s) %s" %(human_size, re_path)
@@ -247,7 +247,7 @@ def wcleaner():
                         if args.auto and JUNK_CENTER.is_safe(re_path):
                             print 'Auto Empty the file "(%s) %s ...' %(human_size, re_path)
                             p = 'y'
-                        if args.no_interface:
+                        elif args.no_interface:
                             break
                         else:
                             p = raw_input('Empty the file "(%s) %s"? [y/n/l/d/h]:' %(human_size, re_path))
