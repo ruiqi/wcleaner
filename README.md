@@ -9,19 +9,19 @@
 
 ## Install
 ````bash
-pip install wcleaner
+$ pip install wcleaner
 ````
 
 ## Usage
 ````
 usage: wcleaner [-h] [-v] [-n N] [--max-capacity MAX_CAPACITY]
-                [--target-capacity TARGET_CAPACITY] [--auto]
+                [--target-capacity TARGET_CAPACITY] [--auto] [--no-interface]
                 [FILESYSTEM]
 
 Disk Space Cleaner
 
 positional arguments:
-  FILESYSTEM            the filesystem to clean
+  FILESYSTEM            filesystem to clean
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -31,15 +31,15 @@ optional arguments:
                         max capacity. default: 90
   --target-capacity TARGET_CAPACITY
                         target capacity. default: 50
-  --auto                automatic clean junks (in whitelist, in greylist and
-                        marched hostname)
+  --auto                automatically clean junk files in whitelist, greylist and on matched hostname
+  --no-interface        none-interactive mode
 ````
 
 ## Enable Junk Center
 ````bash
-echo_wcleaner_conf > /etc/wcleaner.conf
-sed -i 's/your redis host/$host/g' /etc/wcleaner.conf
-sed -i 's/6379/$port/g' /etc/wcleaner.conf
+$ echo_wcleaner_conf > /etc/wcleaner.conf
+$ sed -i 's/your redis host/$host/g' /etc/wcleaner.conf
+$ sed -i 's/6379/$port/g' /etc/wcleaner.conf
 ````
 
 ## Junk Center

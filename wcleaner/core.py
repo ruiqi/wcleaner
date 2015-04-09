@@ -91,12 +91,12 @@ def wcleaner():
 
     parser = argparse.ArgumentParser(description='Disk Space Cleaner')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
-    parser.add_argument('FILESYSTEM', type=str, nargs='?', help='the filesystem to clean')
+    parser.add_argument('FILESYSTEM', type=str, nargs='?', help='filesystem to clean')
     parser.add_argument('-n', type=int, help='print the largest N files')
     parser.add_argument('--max-capacity', type=int, help='max capacity. default: 90')
     parser.add_argument('--target-capacity', type=int, help='target capacity. default: 50')
-    parser.add_argument('--auto', action='store_true', help='auto to clean junks (in whitelist, in greylist and marched hostname)')
-    parser.add_argument('--no-interface', action='store_true', help='no human intervention')
+    parser.add_argument('--auto', action='store_true', help='automatically clean junk files in whitelist, greylist and on matched hostname')
+    parser.add_argument('--no-interface', action='store_true', help='none-interactive mode')
 
     args = parser.parse_args()
 
@@ -113,7 +113,7 @@ def wcleaner():
 
         #default to clean >MAX_CAPACITY% filesystem
         if not args.n and (Capacity < TARGET_CAPACITY or not args.FILESYSTEM and Capacity < MAX_CAPACITY):
-            print 'Do not need to clean ...\n\n'
+            print 'No need to clean ...\n\n'
             continue
 
         group_files = {}
@@ -139,10 +139,10 @@ def wcleaner():
             group_files[key]['total-size'] += size
             group_files[key]['infos'].append((path, size, mtime))
 
-        if IGNORE_FILES_COUNT: print '\nWarning: Ignore the %d files ...' %IGNORE_FILES_COUNT
+        if IGNORE_FILES_COUNT: print '\nWarning: Ignore %d file(s) ...' %IGNORE_FILES_COUNT
 
         if args.n:
-            print '\nThe largest %d files:' %args.n
+            print '\nLargest %d file(s) are:' %args.n
             for v in heapq.nlargest(args.n, group_files.values(), key=lambda v: v['total-size']):
                 print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['infos'])[0]))
             print
@@ -150,7 +150,7 @@ def wcleaner():
         else:
             #default to clean >MAX_CAPACITY% filesystem
             if Capacity < TARGET_CAPACITY or not args.FILESYSTEM and Capacity < MAX_CAPACITY:
-                print 'Do not need to clean ...'
+                print 'No need to clean ...'
                 continue
 
             nlargest_files = heapq.nlargest(20, group_files.values(), key=lambda v: v['total-size'])
@@ -177,7 +177,7 @@ def wcleaner():
 
                 #cancel cleaner flag
                 cancel_flag = False
-                
+
                 if '*' in re_path:
                     v['infos'].sort(key=lambda x: x[2])
                     mtime_2_3 = v['infos'][len(v['infos'])*2/3][2]
@@ -188,22 +188,22 @@ def wcleaner():
                     while True:
                         print
                         if args.auto and JUNK_CENTER.is_safe(re_path):
-                            print "Junk: (%s) %s" %(human_size, re_path)
-                            print 'Auto Clean %d days ago files (recently safe) ...' %default_p
+                            print "Junk file(s): (%s) %s" %(human_size, re_path)
+                            print 'Automatically clean %d-day-old junk files ...' %default_p
                             p = 'y'
                         elif args.no_interface:
                             break
                         else:
-                            print "Junk: (%s) %s" %(human_size, re_path)
-                            p = raw_input('Clean %d days ago files (recently safe)? [y/n/$days/l/d/h]:' %default_p)
+                            print "Junk file(s): (%s) %s" %(human_size, re_path)
+                            p = raw_input('Clean %d-day-old junk files? [y/n/$days/l/d/h]:' %default_p)
 
                         if p in ['h', 'help', 'H', 'HELP']:
                             print 'Help ... Default: n'
                             print 'y:\tExecute the default action.'
                             print 'n:\tDo nothing.'
-                            print '$days:\tClean $days ago files (recently safe).'
-                            print 'l:\tLists the files to be cleaned.'
-                            print 'd:\tDelete all files (recently safe).'
+                            print '$days:\tClean $days-day-old junk files.'
+                            print 'l:\tList junk files to be cleaned.'
+                            print 'd:\tDelete all junk files (recent files are safe).'
                             print 'h:\tPrint help message.'
                             continue
 
@@ -212,7 +212,7 @@ def wcleaner():
                         if p in ['d', 'delete', 'D', 'DELETE']: p = -1
 
                         if p in ['l', 'less', 'L', 'LESS']:
-                            print 'List ...'
+                            print 'Listing ...'
 
                             temp = tempfile.NamedTemporaryFile() 
                             temp.writelines(['%s\n' %path for path, size, mtime in v['infos']])
@@ -225,9 +225,9 @@ def wcleaner():
                             days = int(p)
 
                             if days == -1:
-                                print 'Delete ...'
+                                print 'Deleting ...'
                             else:
-                                print 'Clean %d days ago files ...' %days
+                                print 'Clean %d-day-old junk files ...' %days
 
                             #clean $days ago files
                             for path, size, mtime in v['infos']:
@@ -237,7 +237,7 @@ def wcleaner():
                                     os.remove(path)
 
                         except ValueError:
-                            print 'Cancel ...'
+                            print 'Cancelling ...'
                             cancel_flag = True
 
                         break
@@ -245,42 +245,42 @@ def wcleaner():
                     while True:
                         print
                         if args.auto and JUNK_CENTER.is_safe(re_path):
-                            print 'Auto Empty the file "(%s) %s ...' %(human_size, re_path)
+                            print 'Automatically truncate junk file(s) "(%s) %s ...' %(human_size, re_path)
                             p = 'y'
                         elif args.no_interface:
                             break
                         else:
-                            p = raw_input('Empty the file "(%s) %s"? [y/n/l/d/h]:' %(human_size, re_path))
+                            p = raw_input('Truncate junk file(s) "(%s) %s"? [y/n/l/d/h]:' %(human_size, re_path))
 
                         if p in ['h', 'help', 'H', 'HELP']:
                             print 'Help ... Default: n'
                             print 'y:\tExecute the default action.'
                             print 'n:\tDo nothing.'
-                            print 'l:\tLists the file contents to be cleaned.'
-                            print 'd:\tDelete the file.'
+                            print 'l:\tList the file contents to be cleaned.'
+                            print 'd:\tDelete junk file(s).'
                             print 'h:\tPrint help message.'
                             continue
 
                         if p in ['y', 'yes', 'Y', 'YES']:
-                            print 'Empty ... '
+                            print 'Truncating ... '
 
                             #empty file
                             #print 'empty %s' %re_path
                             v['total-size'] -= v['infos'][0][1]
                             open(re_path, 'w').close()
                         elif p in ['d', 'delete', 'D', 'DELETE']:
-                            print 'Delete ... '
+                            print 'Deleting ... '
 
                             #print 'delete %s' %re_path
                             v['total-size'] -= v['infos'][0][1]
                             os.remove(re_path)
                         elif p in ['l', 'less', 'L', 'LESS']:
-                            print 'List ...'
+                            print 'Listing ...'
 
                             os.system('less %s' %re_path)
                             continue
                         else:
-                            print 'Cancel ...'
+                            print 'Cancelling ...'
                             cancel_flag = True
 
                         break
@@ -291,7 +291,7 @@ def wcleaner():
             Capacity = get_filesystem_capacity(Filesystem)
             if Capacity > MAX_CAPACITY:
                 print
-                print 'Warning: Can not reduce capacity < %d%%. This is the largest 10 files:' %MAX_CAPACITY
+                print 'Warning: Can not reduce capacity < %d%%. These are the largest 10 files:' %MAX_CAPACITY
                 for v in sorted(nlargest_files, key=lambda v: v['total-size'], reverse=True)[:10]:
                     print '%s\t%s' %(get_human_size(v['total-size']), get_re_path(zip(*v['infos'])[0]))
 
@@ -329,7 +329,7 @@ def wcleaner():
                     deleted_files.sort(key=lambda deleted_file: deleted_file[1], reverse=True)
                     if deleted_files:
                         print
-                        print 'Warning: Some files have been deleted, but not free up space. This is the largest 10 files:'
+                        print 'Warning: Some files have been deleted, but allocated space has not been freed. These are the largest 10 files:'
                         print 'SIZE\tPID\tCOMMAND\tFILE'
                         for deleted_file in deleted_files[:10]:
                             print '%s\t%d\t%s\t%s (deleted)' %(get_human_size(deleted_file[1]), deleted_file[2], deleted_file[3], deleted_file[0])
