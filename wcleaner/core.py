@@ -47,7 +47,7 @@ def get_filesystem_capacity(filesystem):
     return int(os.popen("df -Plk | grep '%s'" %filesystem).read().split()[-2][:-1])
 
 def is_opened(path):
-    return not bool(os.system("lsof '%s' | grep '%s' >/dev/null" %(path, path)))
+    return not bool(os.system("fuser '%s' 2>&1 | grep '%s' >/dev/null" %(path, path)))
 
 def walk(path, pattern=None):
     try:
