@@ -227,7 +227,7 @@ def clean_filesystem(Point, Filesystem, Size, Capacity, Auto=False, No_Interface
         while True:
             print
             print "Junk file(s): (%s) %s" %(human_total_size, junk)
-            p = raw_input('Clean old junk files (opened&recent sefe)? [y/n/l/h]:')
+            p = raw_input('Clean old junk files (opened or recent ones are safe)? [y/n/l/h]:')
 
             if p in ['y', 'yes', 'Y', 'YES']:
                 print 'Clean ...'

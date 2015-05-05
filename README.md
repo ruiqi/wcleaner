@@ -7,6 +7,9 @@
 * Automatic delete log files when enable junk center.
 * Junk center support greylist, whitelist, blacklist, redlist.
 
+## Demo
+![Wcleaner Demo](./wcleaner-demo.gif)
+
 ## Install
 ````bash
 $ pip install wcleaner
