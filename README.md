@@ -1,10 +1,10 @@
 # Wcleaner - Disk Space Cleaner
 
 ## Features
-* Automatic identification log files.
-* Automatic aggregation similar files.
+* Automatic identification log files. Default log pattern is r'.\*\blogs?\b.\*'.
+* Intelligently unify similar log files by numeric patterns. Very useful for log rotation.
 * Automatic find deleted files which is not free up space.
-* Automatic delete log files when enable junk center.
+* Automatic clean log files when enable junk center.
 * Junk center support greylist, whitelist, blacklist, redlist.
 
 ## Demo
